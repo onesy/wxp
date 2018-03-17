@@ -2,14 +2,29 @@
 
 namespace Wx\Request;
 
+use GuzzleHttp\Client;
+use Wx\Exceptions\WxParamException;
 abstract class WxRequest {
     
+    protected $key_required = false;
+
     protected $wxpay;
+    
+    public $base_url = "https://api.mch.weixin.qq.com";
+    
+    public $timeout = 5;
+    
+    public $outfile = "/tmp/guzzle.out";
+    
+    public $response_body = null;
+    
+    public $verify_sign = true;
     
     public function __construct(\Wx\WxPay $wxpay) {
         $this->appid = $wxpay->get_appid();
         $this->mch_id = $wxpay->get_mch_id();
         $this->nonce_str = $wxpay->get_nonce_str();
+        $this->notify_url = $wxpay->get_config()['notify_url'];
         $this->wxpay = $wxpay;
     }
 
@@ -65,10 +80,65 @@ abstract class WxRequest {
         return $xml;
     }
     
+    public function xmlobject2array(\SimpleXMLElement $xmlobject)
+    {
+        libxml_disable_entity_loader(true);
+        $result = json_decode(json_encode($xmlobject), true);
+        return $result;
+    }
+    
+    public function check_sign():bool
+    {
+        if ($this->verify_sign == false) {
+            return true;
+        }
+        $rtn = $this->xmlobject2array($this->response_body);
+//        var_dump($rtn);die;
+        $sign = $rtn['sign'];
+        unset($rtn['sign']);
+        ksort($rtn);
+        if ($sign == $this->makeSign($rtn))return true;
+        return false;
+    }
+    
     public function request()
     {
+        $this->sign = $this->makeSign($this->params);
         $xml = $this->xml_generator();
-        $url = $this->url;
+//        var_dump($xml);die;
+        $base_url = $this->base_url;
+        $client = new Client([
+            'base_uri' => $base_url,
+            'timeout' => $this->timeout,
+        ]);
+        $response = $client->request("POST", $this->uri, [
+            'body' => $xml,
+            'debug' => true,
+            'headers' => ["Content-type: text/xml"],
+            'sink' => $this->outfile
+        ]);
+        if ($response->getStatusCode() !== 200)
+        {
+            throw new \Exception("request faild");
+        }
+        $return_info = $response->getBody();
+        
+        $this->response_body = simplexml_load_string($return_info,'SimpleXMLElement',LIBXML_NOCDATA);
+        if (!$this->check_sign())
+        {
+            throw new Exception("return sign check Error");
+        }
+//        var_dump($this->check_sign());
+        return $this->response_body;
+    }
+    
+    public function is_job_success()
+    {
+        if ((string)$this->response_body->result_code == "SUCCESS")
+        {
+            return true;
+        }
+        return false;
     }
 
 }

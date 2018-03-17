@@ -36,6 +36,8 @@ class WxPay
     
     public function __construct(array $config) {
         $this->config = $config;
+        $this->appid = $config['app_id'];
+        $this->mch_id = $config['mch_id'];
     }
     
     public function get_config(): array

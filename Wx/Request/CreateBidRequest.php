@@ -4,7 +4,7 @@ use Wx\Exceptions\WxParamException;
 
 class CreateBidRequest extends WxRequest
 {
-    public $url = "https://api.mch.weixin.qq.com/pay/unifiedorder";
+    public $uri = "/pay/unifiedorder";
     
     public $require = [
         'appid',
@@ -19,13 +19,19 @@ class CreateBidRequest extends WxRequest
         'trade_type',
     ];
     
-    private $params = [
+    protected $params = [
         'device_info' => 'WEB',
         'sign_type' => 'MD5',
         'trade_type' => 'APP',
     ];
     
     public function __construct(\Wx\WxPay $wxpay) {
+        $this->key_required = true;
         parent::__construct($wxpay);
+    }
+    
+    public function get_token():string
+    {
+        return (string)$this->body->prepay_id;
     }
 }
