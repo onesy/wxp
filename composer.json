@@ -14,5 +14,8 @@
             "email": "1587273742@qq.com"
         }
     ],
-    "minimum-stability": "stable"
+    "minimum-stability": "stable",
+    "autoload": {
+        "classmap": ["src"]
+    }
 }
